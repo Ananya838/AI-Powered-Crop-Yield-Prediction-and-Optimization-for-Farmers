@@ -1,0 +1,53 @@
+version: "3.9"
+
+services:
+  mysql:
+    image: mysql:8.4
+    container_name: crop-ai-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: crop_ai
+      MYSQL_USER: cropyield
+      MYSQL_PASSWORD: cropyield
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./backend/sql/init.sql:/docker-entrypoint-initdb.d/init.sql
+
+  redis:
+    image: redis:7-alpine
+    container_name: crop-ai-redis
+    ports:
+      - "6379:6379"
+
+  backend:
+    build:
+      context: ./backend
+    container_name: crop-ai-backend
+    env_file:
+      - ./backend/.env.example
+    environment:
+      MYSQL_HOST: mysql
+      REDIS_URL: redis://redis:6379/0
+      ML_MODEL_PATH: /app/ml_models/best_yield_model.joblib
+    depends_on:
+      - mysql
+      - redis
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./ml/models:/app/ml_models
+
+  frontend:
+    build:
+      context: ./frontend
+    container_name: crop-ai-frontend
+    depends_on:
+      - backend
+    ports:
+      - "5173:80"
+
+volumes:
+  mysql_data:
